@@ -3,7 +3,9 @@ Help
 SYNOPSIS:
 -X      : Set explicit, when set print the output in a human readable format.
 -v, -V  : Verbose, when set "dearsize" would print out the files, directory list to stdout.
--d, -D  : Decimal conversion basis, when set DearSize would use "Decimal" conversion(1000) to calculate the KB, and MB. and the default being "Binary".
+-d, -D  : Decimal conversion basis, when set "dearsize" would use "Decimal" conversion(1000 Bytes = 1 KB) to calculate the KB, and MB. and the default being "Binary" conversion(1024 Bytes = 1 KIB).
+-s, -S  : Set sym link output status to true, when set "dearsize" would print out the System Link handling status to stdout.
+-h, -H  : Help, activate help for dearsize.
 
 You can use multiple options in a same option, like so: -ve, -vde, ect; The order of the options dosen't matter.
 
