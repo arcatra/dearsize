@@ -1,6 +1,6 @@
 
 compile() {
-    gcc -Wall -Wextra -std=c11 src/main.c -o bin/dearsize
+    gcc -Wall -Wextra -std=c11 src/main.c -o bin/dearsize -l m
 }
 
 
