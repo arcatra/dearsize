@@ -11,9 +11,9 @@ OBJS	:= $(SRCS:src/%.c=build/%.o)
 all: $(TARGET)
 
 # Link the object files into the final executable
-$(TARGET): $(OBJS)
+$(TARGET): 
 	@mkdir -p bin
-	$(CC) $(SRCS) -o $(TARGET)
+	$(CC) $(TCFLAGS) $(SRCS) -o $(ARGET)
 
 # Compile source files into object files
 build/%.o: src/%.c
