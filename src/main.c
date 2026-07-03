@@ -1,6 +1,5 @@
 #define _XOPEN_SOURCE 500
 #include <ftw.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,27 +11,33 @@ struct cStatus {
   _Bool explicit;
 };
 
-struct cStatus status;
+struct cStatus status = {0, 0};
 
-long long totalSize = 0;
+long long totalBytes = 0;
 int totalDirs = -1, totalFiles, maxDepth = 0;
 
-int calculateSize(const char *fpath, const struct stat *sb, int typeflag,
-                  struct FTW *ftwbuf) {
+int findMax(int num1, int num2) { return num1 > num2 ? num1 : num2; }
+
+int checkAndCalculateSize(const char *fpath, const struct stat *sb,
+                          int typeflag, struct FTW *ftwbuf) {
 
   if (typeflag == FTW_D) {
-    // printf("Found DIR, DIR Path: %s\n", fpath);
+    if (status.verbose) {
+      printf("Directory: %s\n", fpath);
+    }
+
     totalDirs += 1;
-    maxDepth = fmax(maxDepth, ftwbuf->level);
+    maxDepth = findMax(maxDepth, ftwbuf->level);
+
     return 0;
   }
 
   if (status.verbose) {
-    printf("Checking: %s\n", fpath);
+    printf("Checking : %s\n", fpath);
   }
 
   if (typeflag == FTW_F) {
-    totalSize += sb->st_size;
+    totalBytes += sb->st_size;
     totalFiles += 1;
 
   } else if (typeflag == FTW_DNR) {
@@ -40,7 +45,7 @@ int calculateSize(const char *fpath, const struct stat *sb, int typeflag,
     printf("-----------\n");
   }
 
-  maxDepth = fmax(maxDepth, ftwbuf->level);
+  maxDepth = findMax(maxDepth, ftwbuf->level);
   return 0;
 }
 
@@ -62,13 +67,48 @@ void parseCommands(char *args[], int length) {
   }
 }
 
+void displayMetadata(char *sourceDir) {
+  double totalKIBs = totalBytes / 1024.0;
+  double TotalMIBs = totalKIBs / 1024.0;
+
+  printf("------------------------------\n");
+  printf("\n");
+  printf("Source directory: %s\n", sourceDir);
+  printf("\n");
+
+  int DirWidth = strlen("Total Dirs");
+  int FileWidth = strlen("Total Files");
+  int MaxDepthWidth = strlen("Max depth");
+
+  int const SPACE = 8;
+
+  printf("Content Information:\n\n");
+  printf("%*s %*s %*s\n", FileWidth + SPACE, "Total Files", DirWidth + SPACE,
+         "Total DIRs", MaxDepthWidth + SPACE, "Max Depth");
+
+  printf("%*d %*d %*d\n", FileWidth + SPACE, totalFiles, DirWidth + SPACE,
+         totalDirs, MaxDepthWidth + SPACE,
+         maxDepth > 0 ? maxDepth - 1 : maxDepth);
+
+  printf("\n\n");
+
+  printf("Size Information:\n\n");
+
+  int bytesWidth = strlen("Bytes");
+
+  printf("%*s %*s %*s\n", bytesWidth + SPACE, "Bytes", SPACE * 2, "KIB",
+         SPACE * 2, "MIB");
+  printf("%*lld %*lf %*lf\n", bytesWidth + SPACE, totalBytes, SPACE * 2,
+         totalKIBs, SPACE * 2, TotalMIBs);
+}
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     printf("Expeted a Directory name, Usage: %s <dir_name>\n", argv[0]);
     exit(0);
   }
 
-  // find the total size of the dir
+  // Target: find the total size of the dir
   // 1. get the name of the target dir => argv at index 1
   // 2. iterate on the dir, sub dirs, and get the size of each file.
   // 3. Print the Size Information to stdout
@@ -81,41 +121,14 @@ int main(int argc, char *argv[]) {
     parseCommands(argv, argc);
   }
 
-  if (nftw(sourceDir, calculateSize, 20, 0) == -1) {
+  if (nftw(sourceDir, checkAndCalculateSize, 20, 0) == -1) {
     printf("\n");
     perror("nftw");
 
     exit(EXIT_FAILURE);
   }
 
-  double KB = totalSize / 1024.0;
-  double MB = KB / 1024.0;
-
-  printf("------------------------------\n");
-  printf("\n");
-  printf("Source directory: %s\n", sourceDir);
-  printf("\n");
-
-  int sDirWidth = strlen("Total Dirs");
-  int sFileWidth = strlen("Total Files");
-  int sMaxDepthWidth = strlen("Max depth");
-
-  int const SPACE = 8;
-
-  printf("Content Information\n\n");
-  printf("%s %*s %*s\n", "Total Files", sDirWidth + SPACE, "Total DIRs",
-         sMaxDepthWidth + SPACE, "Max Depth");
-
-  printf("%*d %*d %*d\n", sFileWidth, totalFiles, sDirWidth + SPACE, totalDirs,
-         sMaxDepthWidth + SPACE, maxDepth - 1);
-
-  printf("\n\n");
-
-  printf("Size Information\n\n");
-  int bytesWidth = strlen("Bytes");
-  printf("%s %*s %*s\n", "Bytes", SPACE * 2, "KB", SPACE * 2, "MB");
-  printf("%*lld %*lf %*lf\n", bytesWidth, totalSize, SPACE * 2, KB, SPACE * 2,
-         MB);
+  displayMetadata(sourceDir);
 
   return EXIT_SUCCESS;
 }
