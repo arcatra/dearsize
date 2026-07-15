@@ -21,7 +21,7 @@ struct cStatus {
 
 long long totalBytes = 0;
 int const SPACE = 8;
-int totalDirs = 0, totalFiles = 0, maxDepth = 0;
+int totalItems = 0, totalDirs = 0, totalFiles = 0, maxDepth = 0;
 
 int sizes[] = {4, 4};
 
@@ -37,6 +37,8 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
 
     maxDepth = findMax(maxDepth, ftwbuf->level);
     totalBytes += sb->st_size;
+
+    totalItems += 1;
 
     if (typeflag == FTW_D) {
         if (status.verbose) {
@@ -73,7 +75,6 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
 }
 
 void help() {
-    printf("dearsize: help\n");
     FILE *fstream =
         fopen("/home/arcatra/Dutils/dearsize/resources/help.txt", "r");
 
@@ -147,7 +148,7 @@ void convertBytes() {
 
 void setContentData() {
 
-    contentStats[0] = (totalFiles + totalDirs);
+    contentStats[0] = totalItems;
     contentStats[1] = totalDirs;
     contentStats[2] = totalFiles;
     contentStats[3] = maxDepth;
@@ -198,6 +199,11 @@ void displaySizeInfo() {
 
 void displayMetadata(char *sourceDir) {
     printf("------------------------------\n");
+
+    if (status.verbose) {
+        verboseIsTrue();
+    }
+
     printf("\n");
     printf("Source directory: %s\n", sourceDir);
     printf("\n");
@@ -216,7 +222,8 @@ void displayMetadata(char *sourceDir) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Expeted a Directory name, Usage: %s <dir_name>\n", argv[0]);
+        printf("Dearsize: Expeted a Directory name, but got None\n");
+        help();
         exit(0);
     }
 
@@ -232,10 +239,6 @@ int main(int argc, char *argv[]) {
         parseOptions(argv, argc);
     }
 
-    if (status.verbose) {
-        verboseIsTrue();
-    }
-
     if (!strcmp(sourceDir, "None")) {
         printf("No source directory provided\n");
         return EXIT_SUCCESS;
@@ -244,7 +247,7 @@ int main(int argc, char *argv[]) {
     if (nftw(sourceDir, checkAndCalculateSize, 20, FTW_PHYS | FTW_MOUNT) ==
         -1) {
         printf("\n");
-        perror("dearsize");
+        perror(sourceDir);
 
         exit(EXIT_FAILURE);
     }
