@@ -11,15 +11,15 @@
 
 // ---------------
 
-struct cStatus {
+typedef struct {
     bool verbose;
     bool explicit;
     bool binary;
     bool decimal;
     bool symlinkstatus;
-};
+} Status;
 
-long long totalBytes = 0;
+double totalBytes = 0;
 int const SPACE = 8;
 int totalItems = 0, totalDirs = 0, totalFiles = 0, maxDepth = 0,
     totalUnreadableItems = 0, totalSymLinks = 0;
@@ -29,7 +29,7 @@ int sizes[] = {4, 6};
 int contentStats[6];
 double sizeStats[4];
 
-struct cStatus status = {false, true, false, true, false};
+Status status = {false, true, false, true, false};
 
 int findMax(int num1, int num2) { return num1 > num2 ? num1 : num2; }
 
@@ -41,18 +41,14 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
 
     totalItems += 1;
 
-    if (typeflag == FTW_D) {
-        if (status.verbose) {
+    if (status.verbose) {
+        if (typeflag == FTW_D) {
             printf("Directory: %s\n", fpath);
+            totalDirs += 1;
         }
 
-        totalDirs += 1;
-
-        return 0;
-    }
-
-    if (status.verbose) {
         printf("Checking : %s\n", fpath);
+        return 0;
     }
 
     if (typeflag == FTW_SL && status.symlinkstatus) {
@@ -65,8 +61,9 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
 
     if (typeflag == FTW_F) {
         totalFiles += 1;
+    }
 
-    } else if (typeflag == FTW_DNR) {
+    if (typeflag == FTW_DNR) {
         fprintf(stderr,
                 "Warning: The Directory %s is not readable-----------\n",
                 fpath);
@@ -167,16 +164,17 @@ void setContentData() {
 void displayContentInfo() {
 
     char *contentMetrics[] = {
-        "Total Items", "Total DIRs",      "Total Files",
-        "Max Depth",   "Total Sym links", "Total unreadable items",
+        "Items", "DIRs", "Files", "Max Depth", "Sym links", "unreadable items",
     };
 
     if (status.explicit) {
         printf("Directory Information:\n\n");
+        printf("TOTALS\n");
     }
 
     for (int index = 0; index < sizes[1]; index++) {
         if (contentStats[index] == 0) {
+            printf("%*s No %s", SPACE, "", contentMetrics[index]);
             continue;
         }
 
@@ -265,6 +263,7 @@ int main(int argc, char *argv[]) {
         -1) {
         printf("\n");
         perror(sourceDir);
+        printf("    - Dearsize");
 
         exit(EXIT_FAILURE);
     }
