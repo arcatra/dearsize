@@ -21,11 +21,12 @@ struct cStatus {
 
 long long totalBytes = 0;
 int const SPACE = 8;
-int totalItems = 0, totalDirs = 0, totalFiles = 0, maxDepth = 0;
+int totalItems = 0, totalDirs = 0, totalFiles = 0, maxDepth = 0,
+    totalUnreadableItems = 0, totalSymLinks = 0;
 
-int sizes[] = {4, 4};
+int sizes[] = {4, 6};
 
-int contentStats[4];
+int contentStats[6];
 double sizeStats[4];
 
 struct cStatus status = {false, true, false, true, false};
@@ -57,6 +58,8 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
     if (typeflag == FTW_SL && status.symlinkstatus) {
         printf("Sym link, skipping: %s\n", fpath);
         totalFiles += 1;
+        totalSymLinks += 1;
+
         return 0;
     }
 
@@ -69,6 +72,7 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
                 fpath);
         printf("\n");
         totalDirs += 1;
+        totalUnreadableItems += 1;
     }
 
     return 0;
@@ -142,6 +146,10 @@ void convertBytes() {
 
     sizeStats[0] = totalBytes;
     for (int index = 1; index < sizes[0]; index++) {
+        if (sizeStats[index - 1] < conversionBasis) {
+            sizeStats[index] = 0;
+            continue;
+        }
         sizeStats[index] = sizeStats[index - 1] / conversionBasis;
     }
 }
@@ -152,15 +160,15 @@ void setContentData() {
     contentStats[1] = totalDirs;
     contentStats[2] = totalFiles;
     contentStats[3] = maxDepth;
+    contentStats[4] = totalSymLinks;
+    contentStats[5] = totalUnreadableItems;
 }
 
 void displayContentInfo() {
 
     char *contentMetrics[] = {
-        "Total Items",
-        "Total DIRs",
-        "Total Files",
-        "Max Depth",
+        "Total Items", "Total DIRs",      "Total Files",
+        "Max Depth",   "Total Sym links", "Total unreadable items",
     };
 
     if (status.explicit) {
@@ -168,6 +176,10 @@ void displayContentInfo() {
     }
 
     for (int index = 0; index < sizes[1]; index++) {
+        if (contentStats[index] == 0) {
+            continue;
+        }
+
         int width = strlen(contentMetrics[index]) + SPACE;
 
         printf("%*s: %d", width, contentMetrics[index], contentStats[index]);
@@ -190,6 +202,10 @@ void displaySizeInfo() {
     }
 
     for (int index = 0; index < sizes[0]; index++) {
+        if (sizeStats[index] == 0) {
+            continue;
+        }
+
         int width = strlen(sizeMetrics[index]) + SPACE;
 
         printf("%*s: %.02lf", width, sizeMetrics[index], sizeStats[index]);
@@ -222,7 +238,8 @@ void displayMetadata(char *sourceDir) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Dearsize: Expeted a Directory name, but got None\n");
+        printf("Dearsize: Expected a Directory name, but got None\n");
+        printf("\n");
         help();
         exit(0);
     }

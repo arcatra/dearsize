@@ -1,12 +1,10 @@
-Help
+dearsize - Know the exact size of a directory, and with metadata about the directory.
+HELP
 
-NAME
-    dearsize - Know the exact size of a directory
-
-SYNOPSIS:
+USAGE:
     dearsize path_to_dir [Flags(s)]
 
-DESCRIPTION:
+SYNOPSIS:
     -v, -V  : Verbose, when set dearsize would list out and prints the files, directory that are currently being processed,
     and some other importent information, to stdout.
     -b, -B  : Apply BINARY conversion basis, when set dearsize would use Binary conversion to calculate the KiB, MiG, GiB (1024 Bytes = 1 KiB..).
