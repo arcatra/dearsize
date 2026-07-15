@@ -21,8 +21,8 @@ typedef struct {
 
 double totalBytes = 0;
 int const SPACE = 8;
-int totalItems = 0, totalDirs = 0, totalFiles = 0, maxDepth = 0,
-    totalUnreadableItems = 0, totalSymLinks = 0;
+int TotalItems = 0, Dirs = 0, Files = 0, maxDepth = 0, UnreadableItems = 0,
+    SymLinks = 0;
 
 int sizes[] = {4, 6};
 
@@ -39,55 +39,63 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
     maxDepth = findMax(maxDepth, ftwbuf->level);
     totalBytes += sb->st_size;
 
-    totalItems += 1;
+    TotalItems += 1;
 
     if (status.verbose) {
 
         printf("Checking : %s\n", fpath);
+
         if (typeflag == FTW_D) {
             printf("Directory: %s\n", fpath);
         }
 
         if (typeflag == FTW_NS) {
             printf("No-Access: %s\n", fpath);
-            totalFiles += 1;
         }
     }
 
-    if (typeflag == FTW_D) {
-        totalDirs += 1;
-    }
-
     if (typeflag == FTW_SL && status.symlinkstatus) {
-        printf("Sym link, skipping: %s\n", fpath);
-        totalFiles += 1;
-        totalSymLinks += 1;
-
-        return 0;
-    }
-
-    if (typeflag == FTW_F) {
-        totalFiles += 1;
+        printf("Sym Link: %s, skipping", fpath);
     }
 
     if (typeflag == FTW_DNR) {
-        fprintf(stderr,
-                "Warning: The Directory %s is not readable-----------\n",
+        fprintf(stderr, "Warning: The Directory %s is not readable ~~~~~~\n",
                 fpath);
         printf("\n");
-        totalDirs += 1;
-        totalUnreadableItems += 1;
+    }
+
+    switch (typeflag) {
+
+    case FTW_D:
+        Dirs += 1;
+        return 0;
+
+    case FTW_NS:
+    case FTW_F:
+        Files += 1;
+        break;
+
+    case FTW_SL:
+        Files += 1;
+        SymLinks += 1;
+        break;
+
+    case FTW_DNR:
+        Dirs += 1;
+        UnreadableItems += 1;
+        break;
     }
 
     return 0;
 }
 
 void help() {
-    FILE *fstream =
-        fopen("/home/arcatra/Dutils/dearsize/resources/help.txt", "r");
+    char *helpFilePath = "/home/arcatra/Dutils/dearsize/resources/help.txt";
+    FILE *fstream = fopen(helpFilePath, "r");
 
     if (fstream == NULL) {
         printf("Cannot print the help, error occured\n");
+        printf("May be the file path \"%s\" doesn't exists", helpFilePath);
 
         return;
     }
@@ -160,12 +168,12 @@ void convertBytes() {
 
 void setContentData() {
 
-    contentStats[0] = totalItems;
-    contentStats[1] = totalDirs;
-    contentStats[2] = totalFiles;
+    contentStats[0] = TotalItems;
+    contentStats[1] = Dirs;
+    contentStats[2] = Files;
     contentStats[3] = maxDepth;
-    contentStats[4] = totalSymLinks;
-    contentStats[5] = totalUnreadableItems;
+    contentStats[4] = SymLinks;
+    contentStats[5] = UnreadableItems;
 }
 
 void displayContentInfo() {
@@ -270,7 +278,7 @@ int main(int argc, char *argv[]) {
         -1) {
         printf("\n");
         perror(sourceDir);
-        printf("    - %s", PROJECT_NAME);
+        printf("    -%s", PROJECT_NAME);
 
         exit(EXIT_FAILURE);
     }

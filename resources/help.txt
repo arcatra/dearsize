@@ -1,16 +1,23 @@
-dearsize - Know the exact size, and metadata of a directory.
 HELP
+dearsize - Know the exact size, and metadata of a directory.
 
 USAGE:
     dearsize path_to_dir [Flags(s)]
 
 SYNOPSIS:
     -v, -V  : Verbose, when set dearsize would list out and prints the files, directory that are currently being processed,
-    and some other importent information, to stdout.
+    and some other important information, to stdout.
     -b, -B  : Apply BINARY conversion basis, when set dearsize would use Binary conversion to calculate the KiB, MiG, GiB (1024 Bytes = 1 KiB..).
     And the default being DECIMAL conversion basis (1000 Bytes = 1 KB..).
     -s, -S  : Set sym link output status to true, when set dearsize would print out the Symbolic Link handling status to stdout.
     -X      : Set explicit to FALSE(0), when set dearsize would print the output in a plain format.
     -h, -H  : Help, activate help for dearsize.
 
-You can use multiple flags in a same flag, like so: -ve, -vde, ect; The order of the flags dosen't matter.
+You can use multiple flags in a single flag, like so: -ev, -vbe, -Xv ect; The order of the flags doesn't matter.
+
+Note:
+Dearsize includes the size of unreadable/unreachable directories, and sym links in calculation which is about 4096 Bytes(for both sym link, and unreadable directories) or around 4.1KB each.
+The reason for this is because I wanted this tool to be precise.
+But when you think about it, if you have about 100 sym links then the resulting total Bytes would be 100 * 4096 = 409600 Bytes which is a lot.
+And this would eventually affect the other metrics like KB, MB, GB.., which are calculated based on Bytes.
+In the feature updates I will add a flag, which you can use to tell dearsize to not consider the sym links, and unreadable directories sizes during the calculation.
