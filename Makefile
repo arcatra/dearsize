@@ -37,14 +37,14 @@ install: all
 	@mkdir -p $(BINDIR)
 	cp $(TARGET) $(BINDIR)/dearsize
 	chmod 755 $(BINDIR)/dearsize
-	@echo "Installation successful!"
+	@echo "Installed successfully!"
 
 uninstall:
 	@if [ ! -w "$(BINDIR)" ]; then \
 		echo "Permission error: You must use 'sudo make uninstall'"; \
 		exit 1; \
 	fi
-	@echo "Removing dear_size from $(BINDIR)..."
+	@echo "Removing dearsize from $(BINDIR)..."
 	rm -f $(BINDIR)/dearsize
 	@echo "Uninstalled successfully!"
 

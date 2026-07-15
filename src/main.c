@@ -19,16 +19,16 @@ struct cStatus {
     bool symlinkstatus;
 };
 
-typedef struct {
-    double kb;
-    double mb;
-    double gb;
-} sizeStats;
-
 long long totalBytes = 0;
 int const SPACE = 8;
-int totalDirs = -1, totalFiles, maxDepth = 0;
-struct cStatus status = {false, true, true, false, false};
+int totalDirs = 0, totalFiles = 0, maxDepth = 0;
+
+int sizes[] = {4, 4};
+
+int contentStats[4];
+double sizeStats[4];
+
+struct cStatus status = {false, true, false, true, false};
 
 int findMax(int num1, int num2) { return num1 > num2 ? num1 : num2; }
 
@@ -62,20 +62,39 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
         totalFiles += 1;
 
     } else if (typeflag == FTW_DNR) {
-        fprintf(stderr, "Warning: The Directory %s is not readable\n", fpath);
-        printf("-----------\n");
+        fprintf(stderr,
+                "Warning: The Directory %s is not readable-----------\n",
+                fpath);
+        printf("\n");
         totalDirs += 1;
     }
 
     return 0;
 }
 
-void help() { printf("dearsize: help\n"); }
+void help() {
+    printf("dearsize: help\n");
+    FILE *fstream =
+        fopen("/home/arcatra/Dutils/dearsize/resources/help.txt", "r");
 
-void parseCommands(char *args[], int length) {
+    if (fstream == NULL) {
+        printf("Cannot print the help, error occured\n");
+
+        return;
+    }
+
+    char buf[256];
+    while (fgets(buf, sizeof(buf), fstream) != NULL) {
+        printf("%s", buf);
+    }
+
+    fclose(fstream);
+}
+
+void parseOptions(char *args[], int length) {
     int opt;
 
-    while ((opt = getopt(length, args, "XvVdDsShH")) != -1) {
+    while ((opt = getopt(length, args, "XvVbBsShH")) != -1) {
         switch (opt) {
         case 'X':
             status.explicit = false;
@@ -86,10 +105,10 @@ void parseCommands(char *args[], int length) {
             status.verbose = true;
             break;
 
-        case 'd':
-        case 'D':
-            status.decimal = true;
-            status.binary = false;
+        case 'b':
+        case 'B':
+            status.binary = true;
+            status.decimal = false;
             break;
 
         case 's':
@@ -108,54 +127,73 @@ void parseCommands(char *args[], int length) {
     }
 }
 
-sizeStats convertBytes() {
-    sizeStats sStats;
+void verboseIsTrue() {
+    printf("Decimal conversion basis: %d\n", status.decimal);
+    printf("Binary conversion basis: %d\n", status.binary);
+}
 
+void convertBytes() {
     double conversionBasis = 1024.0;
 
     if (status.decimal) {
         conversionBasis = 1000.0;
     }
 
-    sStats.kb = totalBytes / conversionBasis;
-    sStats.mb = sStats.kb / conversionBasis;
-    sStats.gb = sStats.mb / conversionBasis;
+    sizeStats[0] = totalBytes;
+    for (int index = 1; index < sizes[0]; index++) {
+        sizeStats[index] = sizeStats[index - 1] / conversionBasis;
+    }
+}
 
-    return sStats;
+void setContentData() {
+
+    contentStats[0] = (totalFiles + totalDirs);
+    contentStats[1] = totalDirs;
+    contentStats[2] = totalFiles;
+    contentStats[3] = maxDepth;
 }
 
 void displayContentInfo() {
-    int DirWidth = strlen("Total Dirs");
-    int totalItemsWidth = strlen("Total items");
-    int FileWidth = strlen("Total Files");
-    int MaxDepthWidth = strlen("Max depth");
+
+    char *contentMetrics[] = {
+        "Total Items",
+        "Total DIRs",
+        "Total Files",
+        "Max Depth",
+    };
 
     if (status.explicit) {
-        printf("Content Information:\n\n");
-        printf("%s %*s %*s %*s\n", "Total items", totalItemsWidth + SPACE,
-               "Total Files", DirWidth + SPACE, "Total DIRs",
-               MaxDepthWidth + SPACE, "Max Depth");
+        printf("Directory Information:\n\n");
     }
 
-    printf("%*d %*d %*d %*d\n", totalItemsWidth, (totalDirs + totalFiles),
-           FileWidth + SPACE, totalFiles, DirWidth + SPACE,
-           totalDirs > 0 ? totalDirs - 1 : 0, MaxDepthWidth + SPACE,
-           maxDepth > 0 ? maxDepth - 1 : 0);
+    for (int index = 0; index < sizes[1]; index++) {
+        int width = strlen(contentMetrics[index]) + SPACE;
+
+        printf("%*s: %d", width, contentMetrics[index], contentStats[index]);
+    }
+    printf("\n");
 }
 
-void displaySizeInfo(sizeStats stats) {
+void displaySizeInfo() {
 
-    int bytesWidth = strlen("Bytes");
+    char *sizeMetrics[] = {
+        "Bytes",
+        "KB",
+        "MB",
+        "GB",
+    };
+
     if (status.explicit) {
         printf("Size Information in %s conversion basis:\n\n",
                status.decimal ? "Decimal" : "Binary");
-
-        printf("%*s %*s %*s %*s\n", bytesWidth + SPACE, "Bytes", SPACE * 2,
-               "KIB", SPACE * 2, "MIB", SPACE * 2, "GB");
     }
 
-    printf("%*lld %*.02lf %*.02lf %*.02lf\n", bytesWidth + SPACE, totalBytes,
-           SPACE * 2, stats.kb, SPACE * 2, stats.mb, SPACE * 2, stats.gb);
+    for (int index = 0; index < sizes[0]; index++) {
+        int width = strlen(sizeMetrics[index]) + SPACE;
+
+        printf("%*s: %.02lf", width, sizeMetrics[index], sizeStats[index]);
+    }
+    printf("\n");
 }
 
 void displayMetadata(char *sourceDir) {
@@ -164,15 +202,16 @@ void displayMetadata(char *sourceDir) {
     printf("Source directory: %s\n", sourceDir);
     printf("\n");
 
-    if (totalBytes <= 0 || !(totalFiles)) {
+    if (totalBytes <= 0) {
         printf("Nothing to print, empty directory\n");
         return;
     }
 
+    setContentData();
     displayContentInfo();
     printf("\n\n");
-    sizeStats convStats = convertBytes();
-    displaySizeInfo(convStats);
+    convertBytes();
+    displaySizeInfo();
 }
 
 int main(int argc, char *argv[]) {
@@ -181,7 +220,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    // What we need to achive: find the exact total size of the dir
+    // Goal: find the exact total size of the dir
     // 1. get the name of the target dir => argv at index 1
     // 2. iterate on the dir, sub dirs, and get the size of each file.
     // 3. Print the Size Information to stdout
@@ -189,9 +228,17 @@ int main(int argc, char *argv[]) {
     char *sourceDir = argv[1];
 
     if (argc >= 2) {
-        // printArray(argv, argc);
         printf("\n");
-        parseCommands(argv, argc);
+        parseOptions(argv, argc);
+    }
+
+    if (status.verbose) {
+        verboseIsTrue();
+    }
+
+    if (!strcmp(sourceDir, "None")) {
+        printf("No source directory provided\n");
+        return EXIT_SUCCESS;
     }
 
     if (nftw(sourceDir, checkAndCalculateSize, 20, FTW_PHYS | FTW_MOUNT) ==
