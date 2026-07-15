@@ -1,4 +1,4 @@
-dearsize - Know the exact size of a directory, and with metadata about the directory.
+dearsize - Know the exact size, and metadata of a directory.
 HELP
 
 USAGE:
@@ -10,7 +10,7 @@ SYNOPSIS:
     -b, -B  : Apply BINARY conversion basis, when set dearsize would use Binary conversion to calculate the KiB, MiG, GiB (1024 Bytes = 1 KiB..).
     And the default being DECIMAL conversion basis (1000 Bytes = 1 KB..).
     -s, -S  : Set sym link output status to true, when set dearsize would print out the Symbolic Link handling status to stdout.
-    -X      : Set explicit to FALSE(0), when set dearsize would print the output in a NON human readable format.
+    -X      : Set explicit to FALSE(0), when set dearsize would print the output in a plain format.
     -h, -H  : Help, activate help for dearsize.
 
 You can use multiple flags in a same flag, like so: -ve, -vde, ect; The order of the flags dosen't matter.

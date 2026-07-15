@@ -42,13 +42,20 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
     totalItems += 1;
 
     if (status.verbose) {
-        if (typeflag == FTW_D) {
-            printf("Directory: %s\n", fpath);
-            totalDirs += 1;
-        }
 
         printf("Checking : %s\n", fpath);
-        return 0;
+        if (typeflag == FTW_D) {
+            printf("Directory: %s\n", fpath);
+        }
+
+        if (typeflag == FTW_NS) {
+            printf("No-Access: %s\n", fpath);
+            totalFiles += 1;
+        }
+    }
+
+    if (typeflag == FTW_D) {
+        totalDirs += 1;
     }
 
     if (typeflag == FTW_SL && status.symlinkstatus) {
@@ -164,7 +171,7 @@ void setContentData() {
 void displayContentInfo() {
 
     char *contentMetrics[] = {
-        "Items", "DIRs", "Files", "Max Depth", "Sym links", "unreadable items",
+        "Items", "DIRs", "Files", "Max Depth", "Sym links", "unreadable DIRs",
     };
 
     if (status.explicit) {
@@ -236,7 +243,7 @@ void displayMetadata(char *sourceDir) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Dearsize: Expected a Directory name, but got None\n");
+        printf("%s: Expected a Directory name, but got None\n", PROJECT_NAME);
         printf("\n");
         help();
         exit(0);
@@ -263,7 +270,7 @@ int main(int argc, char *argv[]) {
         -1) {
         printf("\n");
         perror(sourceDir);
-        printf("    - Dearsize");
+        printf("    - %s", PROJECT_NAME);
 
         exit(EXIT_FAILURE);
     }
