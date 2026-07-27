@@ -16,8 +16,8 @@ SYNOPSIS:
 You can use multiple flags in a single flag, like so: -ev, -vbe, -Xv ect; The order of the flags doesn't matter.
 
 Note:
-Dearsize includes the size of unreadable/unreachable directories, and sym links in calculation which is about 4096 Bytes(for both sym link, and unreadable directories) or around 4.1KB each.
+Dearsize includes the size of unreadable/unreachable directories, and sym links in calculation which is about 4096 Bytes(for each of the sym link, and unreadable directory) or around 4.1KB each.
 The reason for this is because I wanted this tool to be precise.
-But when you think about it, if you have about 100 sym links then the resulting total Bytes would be 100 * 4096 = 409600 Bytes which is a lot.
+But when you think about it, if you have about 100 sym links in the source dir, then the resulting total Bytes would be 100 * 4096 = 409600 Bytes for sym links alone which is a lot. 
 And this would eventually affect the other metrics like KB, MB, GB.., which are calculated based on Bytes.
 In the feature updates I will add a flag, which you can use to tell dearsize to not consider the sym links, and unreadable directories sizes during the calculation.

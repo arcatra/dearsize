@@ -19,7 +19,7 @@ typedef struct {
     bool symlinkstatus;
 } Status;
 
-double totalBytes = 0;
+long long totalBytes = 0;
 int const SPACE = 8;
 int TotalItems = 0, Dirs = 0, Files = 0, maxDepth = 0, UnreadableItems = 0,
     SymLinks = 0;
@@ -29,38 +29,44 @@ int sizes[] = {4, 6};
 int contentStats[6];
 double sizeStats[4];
 
+double conversionBasis = 1000.0;
+
 Status status = {false, true, false, true, false};
 
 int findMax(int num1, int num2) { return num1 > num2 ? num1 : num2; }
 
-int checkAndCalculateSize(const char *fpath, const struct stat *sb,
+int checkAndCalculateSize(const char *fpath, const struct stat *fileStatus,
                           int typeflag, struct FTW *ftwbuf) {
 
     maxDepth = findMax(maxDepth, ftwbuf->level);
-    totalBytes += sb->st_size;
 
     TotalItems += 1;
 
     if (status.verbose) {
+        switch (typeflag) {
+        case FTW_D:
+            if (ftwbuf->level > 0) {
+                printf("Directory : %s\n", fpath);
+            }
+            break;
 
-        printf("Checking : %s\n", fpath);
+        case FTW_F:
+            printf("Checking  : %s\n", fpath);
+            break;
 
-        if (typeflag == FTW_D) {
-            printf("Directory: %s\n", fpath);
-        }
-
-        if (typeflag == FTW_NS) {
-            printf("No-Access: %s\n", fpath);
+        case FTW_NS:
+            printf("Acs-Denied: %s", fpath);
         }
     }
 
     if (typeflag == FTW_SL && status.symlinkstatus) {
         printf("Sym Link: %s, skipping", fpath);
+        fileStatus->st_ino;
+        fileStatus->st_nlink;
     }
 
     if (typeflag == FTW_DNR) {
-        fprintf(stderr, "Warning: The Directory %s is not readable ~~~~~~\n",
-                fpath);
+        fprintf(stderr, "Acs-Denied: %s\n", fpath);
         printf("\n");
     }
 
@@ -68,15 +74,27 @@ int checkAndCalculateSize(const char *fpath, const struct stat *sb,
 
     case FTW_D:
         Dirs += 1;
+
+        if (ftwbuf->level > 0) {
+            totalBytes += (long long)(fileStatus->st_blocks * 512);
+            //     fileStatus->st_nlink;
+            //     fileStatus->st_ino;
+        }
         return 0;
 
-    case FTW_NS:
     case FTW_F:
+        Files += 1;
+
+        if (ftwbuf->level > 0) {
+            totalBytes += (long long)(fileStatus->st_blocks * 512);
+        }
+        break;
+
+    case FTW_NS:
         Files += 1;
         break;
 
     case FTW_SL:
-        Files += 1;
         SymLinks += 1;
         break;
 
@@ -149,12 +167,13 @@ void verboseIsTrue() {
     printf("Binary conversion basis: %d\n", status.binary);
 }
 
-void convertBytes() {
-    double conversionBasis = 1024.0;
-
-    if (status.decimal) {
-        conversionBasis = 1000.0;
+void setConversion() {
+    if (status.binary) {
+        conversionBasis = 1024.0;
     }
+}
+
+void convertBytes() {
 
     sizeStats[0] = totalBytes;
     for (int index = 1; index < sizes[0]; index++) {
@@ -179,7 +198,8 @@ void setContentData() {
 void displayContentInfo() {
 
     char *contentMetrics[] = {
-        "Items", "DIRs", "Files", "Max Depth", "Sym links", "unreadable DIRs",
+        "Items",           "DIRs", "Files", "is the Max Depth", "Sym links",
+        "unreadable DIRs",
     };
 
     if (status.explicit) {
@@ -189,19 +209,18 @@ void displayContentInfo() {
 
     for (int index = 0; index < sizes[1]; index++) {
         if (contentStats[index] == 0) {
-            printf("%*s No %s", SPACE, "", contentMetrics[index]);
+            printf("%*sNo %s", SPACE, "", contentMetrics[index]);
             continue;
         }
 
-        int width = strlen(contentMetrics[index]) + SPACE;
-
-        printf("%*s: %d", width, contentMetrics[index], contentStats[index]);
+        // int width = SPACE + strlen(contentMetrics[index]);
+        printf("%*s%d %s", SPACE, "", contentStats[index],
+               contentMetrics[index]);
     }
     printf("\n");
 }
 
 void displaySizeInfo() {
-
     char *sizeMetrics[] = {
         "Bytes",
         "KB",
@@ -219,9 +238,9 @@ void displaySizeInfo() {
             continue;
         }
 
-        int width = strlen(sizeMetrics[index]) + SPACE;
+        // int width = strlen(sizeMetrics[index]) + SPACE;
 
-        printf("%*s: %.02lf", width, sizeMetrics[index], sizeStats[index]);
+        printf("%*s%.02lf %s", SPACE, "", sizeStats[index], sizeMetrics[index]);
     }
     printf("\n");
 }
@@ -274,6 +293,7 @@ int main(int argc, char *argv[]) {
         return EXIT_SUCCESS;
     }
 
+    setConversion();
     if (nftw(sourceDir, checkAndCalculateSize, 20, FTW_PHYS | FTW_MOUNT) ==
         -1) {
         printf("\n");
