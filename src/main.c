@@ -97,7 +97,7 @@ int recordFilesAndData(const char *fpath, const struct stat *fileStatus,
         switch (typeflag) {
         case FTW_F:
             convSize = convertBytes(fileStatus->st_size);
-            printf("%.2lf %c: %s\n", convSize.size, convSize.unit, fpath);
+            printf("%.2lf%c  : %s\n", convSize.size, convSize.unit, fpath);
             break;
 
         case FTW_NS:
@@ -105,13 +105,10 @@ int recordFilesAndData(const char *fpath, const struct stat *fileStatus,
         }
     }
 
-    if (typeflag == FTW_SL && status.symlinkstatus) {
-        printf("Sym Link: %s, skipping", fpath);
+    if (typeflag == FTW_SL) {
     }
 
     if (typeflag == FTW_DNR) {
-        fprintf(stderr, "Acs-Denied: %s\n", fpath);
-        printf("\n");
     }
 
     switch (typeflag) {
@@ -124,6 +121,10 @@ int recordFilesAndData(const char *fpath, const struct stat *fileStatus,
             totalBytes += fileStatus->st_size;
         }
         return 0;
+
+    case FTW_SL:
+        printf("Sym Link, skipping: %s\n", fpath);
+        break;
 
     case FTW_F:
         dirStats.files += 1;
@@ -141,6 +142,9 @@ int recordFilesAndData(const char *fpath, const struct stat *fileStatus,
     case FTW_DNR:
         dirStats.dirs += 1;
         dirStats.unReadableDirs += 1;
+
+        fprintf(stderr, "Acs-Denied: %s\n", fpath);
+        printf("\n");
         break;
     }
 
@@ -256,7 +260,7 @@ void displaySizeInfo() {
     }
 
     hrSize convSize = convertBytes(totalBytes);
-    printf("%.2lf %c", convSize.size, convSize.unit);
+    printf("%.2lf%c", convSize.size, convSize.unit);
     printf("\n");
 }
 
