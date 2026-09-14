@@ -7,7 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+#include "main.h"
 
 // ---------------
 
@@ -17,52 +20,93 @@ typedef struct {
     bool binary;
     bool decimal;
     bool symlinkstatus;
+    bool detailed;
 } Status;
 
-long long totalBytes = 0;
-int const SPACE = 8;
-int TotalItems = 0, Dirs = 0, Files = 0, maxDepth = 0, UnreadableItems = 0,
-    SymLinks = 0;
+typedef struct {
+    int items;
+    int dirs;
+    int files;
+    int unReadableDirs;
+    int maxDepth;
+} contentStats;
 
-int sizes[] = {4, 6};
-
-int contentStats[6];
-double sizeStats[4];
-
+int SPACE = 10;
+off_t totalBytes = 0;
 double conversionBasis = 1000.0;
+Status status = {false, true, false, true, false, false};
+contentStats dirStats = {0, 0, 0, 0, 0};
 
-Status status = {false, true, false, true, false};
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("%s: Expected a Directory name, but got None\n", PROJECT_NAME);
+        printf("\n");
+        help();
+        exit(0);
+    }
+
+    // Goal: find the exact total size of the dir
+    // 1. get the name of the target dir => argv at index 1
+    // 2. iterate on the dir, sub dirs, and get the size of each file.
+    // 3. Print the Size Information to stdout
+
+    char *sourceDir = argv[1];
+
+    if (argc >= 2) {
+        printf("\n");
+        parseFlags(argv, argc);
+    }
+
+    if (!strcmp(sourceDir, "None")) {
+        printf("No source directory provided\n");
+        return EXIT_SUCCESS;
+    }
+
+    setConversion();
+    if (nftw(sourceDir, recordFilesAndData, 20, FTW_PHYS | FTW_MOUNT) == -1) {
+        printf("\n");
+        perror(sourceDir);
+        printf("    -%s", PROJECT_NAME);
+
+        exit(EXIT_FAILURE);
+    }
+
+    displayStats(sourceDir);
+
+    return EXIT_SUCCESS;
+}
+
+void setConversion() {
+    if (status.binary) {
+        conversionBasis = 1024.0;
+        status.decimal = false;
+    }
+}
 
 int findMax(int num1, int num2) { return num1 > num2 ? num1 : num2; }
 
-int checkAndCalculateSize(const char *fpath, const struct stat *fileStatus,
-                          int typeflag, struct FTW *ftwbuf) {
+int recordFilesAndData(const char *fpath, const struct stat *fileStatus,
+                       int typeflag, struct FTW *ftwbuf) {
 
-    maxDepth = findMax(maxDepth, ftwbuf->level);
+    hrSize convSize;
+    dirStats.maxDepth = findMax(dirStats.maxDepth, ftwbuf->level);
 
-    TotalItems += 1;
+    dirStats.items += 1;
 
     if (status.verbose) {
         switch (typeflag) {
-        case FTW_D:
-            if (ftwbuf->level > 0) {
-                printf("Directory : %s\n", fpath);
-            }
-            break;
-
         case FTW_F:
-            printf("Checking  : %s\n", fpath);
+            convSize = convertBytes(fileStatus->st_size);
+            printf("%.2lf %c: %s\n", convSize.size, convSize.unit, fpath);
             break;
 
         case FTW_NS:
-            printf("Acs-Denied: %s", fpath);
+            printf("Accs-Denied: %s", fpath);
         }
     }
 
     if (typeflag == FTW_SL && status.symlinkstatus) {
         printf("Sym Link: %s, skipping", fpath);
-        fileStatus->st_ino;
-        fileStatus->st_nlink;
     }
 
     if (typeflag == FTW_DNR) {
@@ -73,60 +117,37 @@ int checkAndCalculateSize(const char *fpath, const struct stat *fileStatus,
     switch (typeflag) {
 
     case FTW_D:
-        Dirs += 1;
+        dirStats.dirs += 1;
 
         if (ftwbuf->level > 0) {
-            totalBytes += (long long)(fileStatus->st_blocks * 512);
-            //     fileStatus->st_nlink;
-            //     fileStatus->st_ino;
+            // totalBytes += (fileStatus->st_blocks * 512);
+            totalBytes += fileStatus->st_size;
         }
         return 0;
 
     case FTW_F:
-        Files += 1;
+        dirStats.files += 1;
 
         if (ftwbuf->level > 0) {
-            totalBytes += (long long)(fileStatus->st_blocks * 512);
+            // totalBytes += (fileStatus->st_blocks * 512);
+            totalBytes += fileStatus->st_size;
         }
         break;
 
     case FTW_NS:
-        Files += 1;
-        break;
-
-    case FTW_SL:
-        SymLinks += 1;
+        dirStats.files += 1;
         break;
 
     case FTW_DNR:
-        Dirs += 1;
-        UnreadableItems += 1;
+        dirStats.dirs += 1;
+        dirStats.unReadableDirs += 1;
         break;
     }
 
     return 0;
 }
 
-void help() {
-    char *helpFilePath = "/home/arcatra/Dutils/dearsize/resources/help.txt";
-    FILE *fstream = fopen(helpFilePath, "r");
-
-    if (fstream == NULL) {
-        printf("Cannot print the help, error occured\n");
-        printf("May be the file path \"%s\" doesn't exists", helpFilePath);
-
-        return;
-    }
-
-    char buf[256];
-    while (fgets(buf, sizeof(buf), fstream) != NULL) {
-        printf("%s", buf);
-    }
-
-    fclose(fstream);
-}
-
-void parseOptions(char *args[], int length) {
+void parseFlags(char *args[], int length) {
     int opt;
 
     while ((opt = getopt(length, args, "XvVbBsShH")) != -1) {
@@ -162,54 +183,62 @@ void parseOptions(char *args[], int length) {
     }
 }
 
-void verboseIsTrue() {
-    printf("Decimal conversion basis: %d\n", status.decimal);
-    printf("Binary conversion basis: %d\n", status.binary);
-}
+void help() {
+    char *helpFilePath = "/home/arcatra/Dutils/dearsize/resources/help.txt";
+    FILE *fstream = fopen(helpFilePath, "r");
 
-void setConversion() {
-    if (status.binary) {
-        conversionBasis = 1024.0;
+    if (fstream == NULL) {
+        printf("Cannot print the help, error occured\n");
+        printf("May be the file path \"%s\" doesn't exists", helpFilePath);
+
+        return;
     }
-}
 
-void convertBytes() {
-
-    sizeStats[0] = totalBytes;
-    for (int index = 1; index < sizes[0]; index++) {
-        if (sizeStats[index - 1] < conversionBasis) {
-            sizeStats[index] = 0;
-            continue;
-        }
-        sizeStats[index] = sizeStats[index - 1] / conversionBasis;
+    char buf[256];
+    while (fgets(buf, sizeof(buf), fstream) != NULL) {
+        printf("%s", buf);
     }
+
+    fclose(fstream);
 }
 
-void setContentData() {
+hrSize convertBytes(off_t bytes) {
+    double Bytes = bytes;
+    hrSize convSize = {Bytes, 'B'};
 
-    contentStats[0] = TotalItems;
-    contentStats[1] = Dirs;
-    contentStats[2] = Files;
-    contentStats[3] = maxDepth;
-    contentStats[4] = SymLinks;
-    contentStats[5] = UnreadableItems;
+    if (Bytes < conversionBasis) {
+        return convSize;
+    }
+
+    char units[] = {'B', 'K', 'M', 'G', 'T', 'P'};
+    int uIndex = 0;
+
+    while (Bytes >= conversionBasis) {
+        Bytes /= conversionBasis;
+        uIndex++;
+    }
+    convSize.size = Bytes;
+    convSize.unit = units[uIndex];
+
+    return convSize;
 }
 
 void displayContentInfo() {
-
+    int contentStats[] = {
+        dirStats.items,    dirStats.dirs,           dirStats.files,
+        dirStats.maxDepth, dirStats.unReadableDirs,
+    };
     char *contentMetrics[] = {
-        "Items",           "DIRs", "Files", "is the Max Depth", "Sym links",
-        "unreadable DIRs",
+        "Items", "DIRs", "Files", "level(s) deep", "unreadable DIRs",
     };
 
     if (status.explicit) {
         printf("Directory Information:\n\n");
-        printf("TOTALS\n");
     }
 
-    for (int index = 0; index < sizes[1]; index++) {
+    printf("%d %s", contentStats[0], contentMetrics[0]);
+    for (int index = 1; index < 5; index++) {
         if (contentStats[index] == 0) {
-            printf("%*sNo %s", SPACE, "", contentMetrics[index]);
             continue;
         }
 
@@ -221,39 +250,26 @@ void displayContentInfo() {
 }
 
 void displaySizeInfo() {
-    char *sizeMetrics[] = {
-        "Bytes",
-        "KB",
-        "MB",
-        "GB",
-    };
-
     if (status.explicit) {
-        printf("Size Information in %s conversion basis:\n\n",
+        printf("%s conversion basis:\n\n",
                status.decimal ? "Decimal" : "Binary");
     }
 
-    for (int index = 0; index < sizes[0]; index++) {
-        if (sizeStats[index] == 0) {
-            continue;
-        }
-
-        // int width = strlen(sizeMetrics[index]) + SPACE;
-
-        printf("%*s%.02lf %s", SPACE, "", sizeStats[index], sizeMetrics[index]);
-    }
+    hrSize convSize = convertBytes(totalBytes);
+    printf("%.2lf %c", convSize.size, convSize.unit);
     printf("\n");
 }
 
-void displayMetadata(char *sourceDir) {
+void displayStats(char *sourceDir) {
     printf("------------------------------\n");
 
-    if (status.verbose) {
-        verboseIsTrue();
-    }
+    // if (status.verbose) {
+    //     verboseIsTrue();
+    // }
 
     printf("\n");
-    printf("Source directory: %s\n", sourceDir);
+    printf("The total actual DISK usage of the source DIR\n");
+    printf("%s\n", sourceDir);
     printf("\n");
 
     if (totalBytes <= 0) {
@@ -261,49 +277,7 @@ void displayMetadata(char *sourceDir) {
         return;
     }
 
-    setContentData();
     displayContentInfo();
     printf("\n\n");
-    convertBytes();
     displaySizeInfo();
-}
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("%s: Expected a Directory name, but got None\n", PROJECT_NAME);
-        printf("\n");
-        help();
-        exit(0);
-    }
-
-    // Goal: find the exact total size of the dir
-    // 1. get the name of the target dir => argv at index 1
-    // 2. iterate on the dir, sub dirs, and get the size of each file.
-    // 3. Print the Size Information to stdout
-
-    char *sourceDir = argv[1];
-
-    if (argc >= 2) {
-        printf("\n");
-        parseOptions(argv, argc);
-    }
-
-    if (!strcmp(sourceDir, "None")) {
-        printf("No source directory provided\n");
-        return EXIT_SUCCESS;
-    }
-
-    setConversion();
-    if (nftw(sourceDir, checkAndCalculateSize, 20, FTW_PHYS | FTW_MOUNT) ==
-        -1) {
-        printf("\n");
-        perror(sourceDir);
-        printf("    -%s", PROJECT_NAME);
-
-        exit(EXIT_FAILURE);
-    }
-
-    displayMetadata(sourceDir);
-
-    return EXIT_SUCCESS;
 }
